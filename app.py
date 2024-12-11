@@ -43,7 +43,7 @@ with st.sidebar:
         
         energiebelasting = st.number_input("Energiebelasting (EUR/kWh)", value=0.10150, step=0.00001, format="%.5f")
         belasting_trend = st.number_input("Energiebelasting trend (% per jaar)", value=-1.74, step=0.1) / 100
-        belasting_vanaf_2035 = st.number_input("Energiebelasting vanaf 2035 (EUR/kWh)", value=0.09, step=0.01)
+        belasting_vanaf_2035 = st.number_input("Energiebelasting vanaf 2035 (EUR/kWh)", value=0.08515, step=0.00001, format="%.5f")
     
     with st.expander("💸 Terugleververgoeding", expanded=True):
         btw = st.number_input("BTW-tarief (%)", value=21, step=1) / 100
