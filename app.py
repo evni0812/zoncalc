@@ -108,9 +108,13 @@ for jaar in jaren:
 
 # Terugverdientijd berekening
 terugverdientijd = None
-for i, cum in enumerate(cumulatief):
+for i, cum in enumerate(cumulatief[1:], 1):  # Start vanaf jaar 1
     if cum >= 0:
-        terugverdientijd = i
+        # Lineaire interpolatie voor nauwkeurigere schatting
+        vorig_bedrag = cumulatief[i-1]
+        huidig_bedrag = cum
+        fractie = abs(vorig_bedrag) / (abs(vorig_bedrag) + abs(huidig_bedrag))
+        terugverdientijd = i - 1 + fractie
         break
 
 # Visualisatie
@@ -172,7 +176,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.metric(
         "Terugverdientijd",
-        f"{terugverdientijd} jaar" if terugverdientijd else "Niet terugverdiend binnen 25 jaar"
+        f"{terugverdientijd:.1f} jaar" if terugverdientijd else "Niet terugverdiend binnen 25 jaar"
     )
     
 with col2:
