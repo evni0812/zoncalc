@@ -14,9 +14,10 @@ with st.sidebar:
     
     # 0. Algemene instellingen
     with st.expander("⚙️ Algemene instellingen", expanded=True):
-        startdatum = st.date_input("Startdatum berekening", value=date(2024, 1, 1))
+        startdatum = st.date_input("Startdatum berekening", value=date(2025, 1, 1))
         saldering_einddatum = st.date_input("Einddatum saldering", value=date(2027, 1, 1))
         jaarlijks_verbruik = st.number_input("Jaarlijks stroomverbruik huishouden (kWh)", value=3600, step=100)
+        vervangingstermijn = st.number_input("Vervangingstermijn zonnepanelen (jaren)", value=25, step=1, min_value=10, max_value=40)
     
     # 1. Kosten
     with st.expander("💰 Kosten", expanded=True):
@@ -50,7 +51,7 @@ with st.sidebar:
         terugleverkosten = st.number_input("Terugleverkosten tot 2027 (EUR/jaar)", value=274, step=10)
 
 # Berekeningen
-jaren = range(1, 26)  # 25 jaar analyse
+jaren = range(1, vervangingstermijn + 1)  # Analyse periode op basis van vervangingstermijn
 totaal_vermogen = vermogen_per_paneel * aantal_panelen
 
 # Jaarlijkse opbrengst berekening
@@ -101,16 +102,15 @@ for jaar in jaren:
         opbrengst_saldering = 0
         opbrengst_teruglevering = jaarlijkse_opbrengst * (1 - eigen_gebruik) * actueel_leveringstarief * teruglever_percentage
     
-    jaarlijkse_opbrengst_eur = opbrengst_eigen_verbruik + opbrengst_saldering + opbrengst_teruglevering
-    
     # Terugleverkosten tot einddatum saldering
     extra_kosten = terugleverkosten if huidige_datum < saldering_einddatum else 0
     
-    # Omvormer vervanging
-    if jaar % omvormer_afschrijving == 0:
+    # Omvormer vervanging (niet als panelen binnen 10 jaar vervangen worden)
+    jaren_tot_vervanging = vervangingstermijn - jaar
+    if jaar % omvormer_afschrijving == 0 and jaren_tot_vervanging > 10:
         extra_kosten += omvormer_kosten
     
-    jaarlijkse_opbrengst_eur -= extra_kosten
+    jaarlijkse_opbrengst_eur = opbrengst_eigen_verbruik + opbrengst_saldering + opbrengst_teruglevering - extra_kosten
     opbrengsten_saldering.append(opbrengst_saldering)
     opbrengsten_eigen_verbruik.append(opbrengst_eigen_verbruik)
     opbrengsten_teruglevering.append(opbrengst_teruglevering)
@@ -134,28 +134,28 @@ fig = go.Figure()
 
 # Opbrengsten lijnen
 fig.add_trace(go.Bar(
-    x=list(range(1, 26)),
+    x=list(range(1, vervangingstermijn + 1)),
     y=opbrengsten_saldering,
     name='Opbrengst saldering',
     marker_color='#2ecc71'
 ))
 
 fig.add_trace(go.Bar(
-    x=list(range(1, 26)),
+    x=list(range(1, vervangingstermijn + 1)),
     y=opbrengsten_eigen_verbruik,
     name='Opbrengst eigen verbruik',
     marker_color='#3498db'
 ))
 
 fig.add_trace(go.Bar(
-    x=list(range(1, 26)),
+    x=list(range(1, vervangingstermijn + 1)),
     y=opbrengsten_teruglevering,
     name='Opbrengst teruglevering',
     marker_color='#f1c40f'
 ))
 
 fig.add_trace(go.Bar(
-    x=list(range(1, 26)),
+    x=list(range(1, vervangingstermijn + 1)),
     y=kosten[:-1],  # Exclude initial investment
     name='Kosten',
     marker_color='#e74c3c'
@@ -163,7 +163,7 @@ fig.add_trace(go.Bar(
 
 # Cumulatieve lijn
 fig.add_trace(go.Scatter(
-    x=list(range(26)),
+    x=list(range(vervangingstermijn + 1)),
     y=cumulatief,
     name='Cumulatief resultaat',
     line=dict(color='#2c3e50', width=3)
@@ -239,7 +239,7 @@ with st.expander("💸 Terugleververgoeding aannames"):
 # Extra informatie
 st.subheader("📊 Jaarlijkse details")
 df = pd.DataFrame({
-    'Jaar': list(range(26)),
+    'Jaar': list(range(vervangingstermijn + 1)),
     'Cumulatief resultaat': [round(x, 2) for x in cumulatief],
     'Opbrengst saldering': [0] + [round(x, 2) for x in opbrengsten_saldering],
     'Opbrengst eigen verbruik': [0] + [round(x, 2) for x in opbrengsten_eigen_verbruik],
