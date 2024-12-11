@@ -14,26 +14,27 @@ with st.sidebar:
     
     # 0. Algemene instellingen
     with st.expander("⚙️ Algemene instellingen", expanded=True):
-        startdatum = st.date_input("Startdatum berekening", value=date(2025, 1, 1))
+        startdatum = st.date_input("Startdatum berekening", value=date(2024, 1, 1))
         saldering_einddatum = st.date_input("Einddatum saldering", value=date(2027, 1, 1))
+        jaarlijks_verbruik = st.number_input("Jaarlijks stroomverbruik huishouden (kWh)", value=3600, step=100)
     
     # 1. Kosten
     with st.expander("💰 Kosten", expanded=True):
-        aanschafkosten = st.number_input("Aanschafkosten (EUR)", value=3613, step=100)
+        aanschafkosten = st.number_input("Aanschafkosten (EUR)", value=4500, step=100)
         omvormer_kosten = st.number_input("Kosten vervanging omvormer (EUR)", value=1200, step=100)
         omvormer_afschrijving = st.number_input("Afschrijftijd omvormer (jaren)", value=12, step=1)
 
     # 2. Opbrengsten
     with st.expander("📈 Opbrengsten", expanded=True):
-        vermogen_per_paneel = st.number_input("Geïnstalleerd vermogen per paneel (Wp)", value=430, step=10)
+        vermogen_per_paneel = st.number_input("Geïnstalleerd vermogen per paneel (Wp)", value=400, step=10)
         aantal_panelen = st.number_input("Aantal zonnepanelen", value=10, step=1)
-        opbrengst_per_wp = st.number_input("Opbrengst per wattpiek per jaar (kWh/Wp/jaar)", value=0.90, step=0.01)
+        opbrengst_per_wp = st.number_input("Opbrengst per wattpiek per jaar (kWh/Wp/jaar)", value=0.85, step=0.01)
         degradatie = st.number_input("Degradering opbrengst (% per jaar)", value=0.70, step=0.1) / 100
-        eigen_gebruik = st.number_input("Percentage eigen gebruik (%)", value=30, step=5) / 100
+        eigen_gebruik = st.number_input("Percentage eigen gebruik (%)", value=30, step=1) / 100
 
     # 3. Energieprijzen en belastingen
     with st.expander("⚡ Energieprijzen", expanded=True):
-        leveringstarief = st.number_input("Leveringstarief elektriciteit ex. BTW (EUR/kWh)", value=0.18, step=0.01)
+        leveringstarief = st.number_input("Leveringstarief elektriciteit ex. BTW (EUR/kWh)", value=0.15, step=0.01)
         prijsstijging = st.number_input("Elektriciteitsprijsstijging (% per jaar)", value=1.38, step=0.1) / 100
         prijs_vanaf_2035 = st.number_input("Elektriciteitsprijs vanaf 2035 (EUR/kWh)", value=0.18, step=0.01)
         
@@ -78,18 +79,29 @@ for jaar in jaren:
     # Berekening opbrengsten
     prijs_met_belasting = (actueel_leveringstarief + actuele_energiebelasting) * (1 + btw)
     
+    # Bereken eerst eigen verbruik (dit is altijd hetzelfde)
+    opbrengst_eigen_verbruik = jaarlijkse_opbrengst * eigen_gebruik * prijs_met_belasting
+    
     if saldering_actief:
-        # Met saldering: alle opgewekte stroom tegen vol tarief
-        opbrengst_saldering = jaarlijkse_opbrengst * prijs_met_belasting
-        opbrengst_eigen_verbruik = 0
-        opbrengst_teruglevering = 0
-        jaarlijkse_opbrengst_eur = opbrengst_saldering
+        # Met saldering: teruggeleverde stroom tegen vol tarief, maar maximaal tot jaarlijks verbruik
+        teruggeleverde_stroom = jaarlijkse_opbrengst * (1 - eigen_gebruik)
+        direct_verbruik = jaarlijkse_opbrengst * eigen_gebruik
+        
+        # Bereken hoeveel er nog gesaldeerd kan worden
+        nog_te_salderen = max(0, jaarlijks_verbruik - direct_verbruik)
+        gesaldeerde_stroom = min(teruggeleverde_stroom, nog_te_salderen)
+        
+        # Wat overblijft krijgt terugleververgoeding
+        overgebleven_stroom = max(0, teruggeleverde_stroom - nog_te_salderen)
+        
+        opbrengst_saldering = gesaldeerde_stroom * prijs_met_belasting
+        opbrengst_teruglevering = overgebleven_stroom * actueel_leveringstarief * teruglever_percentage
     else:
-        # Na saldering: eigen verbruik tegen vol tarief, rest tegen teruglevertarief
+        # Na saldering: teruglevering tegen teruglevertarief
         opbrengst_saldering = 0
-        opbrengst_eigen_verbruik = jaarlijkse_opbrengst * eigen_gebruik * prijs_met_belasting
         opbrengst_teruglevering = jaarlijkse_opbrengst * (1 - eigen_gebruik) * actueel_leveringstarief * teruglever_percentage
-        jaarlijkse_opbrengst_eur = opbrengst_eigen_verbruik + opbrengst_teruglevering
+    
+    jaarlijkse_opbrengst_eur = opbrengst_eigen_verbruik + opbrengst_saldering + opbrengst_teruglevering
     
     # Terugleverkosten tot einddatum saldering
     extra_kosten = terugleverkosten if huidige_datum < saldering_einddatum else 0
