@@ -59,6 +59,9 @@ totaal_vermogen = vermogen_per_paneel * aantal_panelen
 opbrengsten_saldering = []
 opbrengsten_eigen_verbruik = []
 opbrengsten_teruglevering = []
+kwh_eigen_verbruik = []
+kwh_saldering = []
+kwh_teruglevering = []
 kosten = []
 cumulatief = [-aanschafkosten]  # Start met initiële investering
 
@@ -69,6 +72,29 @@ for jaar in jaren:
     # Degradatie van opbrengst
     degradatie_factor = (1 - degradatie) ** (jaar - 1)
     jaarlijkse_opbrengst = totaal_vermogen * opbrengst_per_wp * degradatie_factor
+    
+    # Bereken eerst eigen verbruik (dit is altijd hetzelfde)
+    eigen_verbruik_kwh = jaarlijkse_opbrengst * eigen_gebruik
+    kwh_eigen_verbruik.append(eigen_verbruik_kwh)
+    
+    if saldering_actief:
+        # Met saldering: teruggeleverde stroom tegen vol tarief, maar maximaal tot jaarlijks verbruik
+        teruggeleverde_stroom = jaarlijkse_opbrengst * (1 - eigen_gebruik)
+        direct_verbruik = jaarlijkse_opbrengst * eigen_gebruik
+        
+        # Bereken hoeveel er nog gesaldeerd kan worden
+        nog_te_salderen = max(0, jaarlijks_verbruik - direct_verbruik)
+        gesaldeerde_stroom = min(teruggeleverde_stroom, nog_te_salderen)
+        
+        # Wat overblijft krijgt terugleververgoeding
+        overgebleven_stroom = max(0, teruggeleverde_stroom - nog_te_salderen)
+        
+        kwh_saldering.append(gesaldeerde_stroom)
+        kwh_teruglevering.append(overgebleven_stroom)
+    else:
+        # Na saldering: teruglevering tegen teruglevertarief
+        kwh_saldering.append(0)
+        kwh_teruglevering.append(jaarlijkse_opbrengst * (1 - eigen_gebruik))
     
     # Prijzen voor dit jaar
     if huidige_datum.year < 2035:
@@ -199,6 +225,43 @@ with col2:
     )
 
 st.plotly_chart(fig, use_container_width=True)
+
+# Energiestromen grafiek
+fig_energie = go.Figure()
+
+# Energiestromen lijnen
+fig_energie.add_trace(go.Bar(
+    x=list(range(1, vervangingstermijn + 1)),
+    y=kwh_eigen_verbruik,
+    name='Eigen verbruik',
+    marker_color='#3498db'
+))
+
+fig_energie.add_trace(go.Bar(
+    x=list(range(1, vervangingstermijn + 1)),
+    y=kwh_saldering,
+    name='Gesaldeerd',
+    marker_color='#2ecc71'
+))
+
+fig_energie.add_trace(go.Bar(
+    x=list(range(1, vervangingstermijn + 1)),
+    y=kwh_teruglevering,
+    name='Teruglevering',
+    marker_color='#f1c40f'
+))
+
+# Layout
+fig_energie.update_layout(
+    title='Jaarlijkse opwek',
+    xaxis_title='Jaren',
+    yaxis_title='Energie (kWh)',
+    hovermode='x unified',
+    template='plotly_white',
+    barmode='stack'
+)
+
+st.plotly_chart(fig_energie, use_container_width=True)
 
 # Aannames en uitgangspunten
 st.subheader("ℹ️ Aannames en uitgangspunten")
