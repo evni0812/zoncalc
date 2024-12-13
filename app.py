@@ -49,6 +49,7 @@ with st.sidebar:
         btw = st.number_input("BTW-tarief (%)", value=21, step=1) / 100
         teruglever_percentage = st.number_input("Terugleververgoeding (% van leveringstarief)", value=25, step=5) / 100
         terugleverkosten = st.number_input("Terugleverkosten tot 2027 (EUR/jaar)", value=274, step=10)
+        terugleverkosten_na_2027 = st.number_input("Terugleverkosten na 2027 (EUR/jaar)", value=0, step=10)
 
 # Berekeningen
 jaren = range(1, vervangingstermijn + 1)  # Analyse periode op basis van vervangingstermijn
@@ -102,8 +103,8 @@ for jaar in jaren:
         opbrengst_saldering = 0
         opbrengst_teruglevering = jaarlijkse_opbrengst * (1 - eigen_gebruik) * actueel_leveringstarief * teruglever_percentage
     
-    # Terugleverkosten tot einddatum saldering
-    extra_kosten = terugleverkosten if huidige_datum < saldering_einddatum else 0
+    # Terugleverkosten tot einddatum saldering en daarna
+    extra_kosten = terugleverkosten if huidige_datum < saldering_einddatum else terugleverkosten_na_2027
     
     # Omvormer vervanging (niet als panelen binnen 10 jaar vervangen worden)
     jaren_tot_vervanging = vervangingstermijn - jaar
@@ -193,7 +194,7 @@ with col1:
     
 with col2:
     st.metric(
-        "Totale opbrengst na 25 jaar",
+        f"Totale opbrengst na {vervangingstermijn} jaar",
         f"€ {int(cumulatief[-1]):,}".replace(",", ".")
     )
 
@@ -234,7 +235,8 @@ with st.expander("💸 Terugleververgoeding aannames"):
     - BTW-tarief: {:.0f}%
     - Terugleververgoeding: {:.0f}% van leveringstarief
     - Terugleverkosten tot 2027: €{:.0f}/jaar
-    """.format(btw*100, teruglever_percentage*100, terugleverkosten))
+    - Terugleverkosten na 2027: €{:.0f}/jaar
+    """.format(btw*100, teruglever_percentage*100, terugleverkosten, terugleverkosten_na_2027))
 
 # Extra informatie
 st.subheader("📊 Jaarlijkse details")
